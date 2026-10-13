@@ -1107,6 +1107,27 @@ var _ = Describe("CloudProfile Helper", func() {
 				"1.12.3",
 				true,
 			),
+			Entry("Should prefer a supported version over a higher deprecated version of the consecutive minor version.",
+				"1.33.6",
+				[]gardencorev1beta1.ExpirableVersion{
+					{Version: "1.34.3", Classification: &deprecatedClassification},
+					// latest qualifying version for updating version 1.33.6
+					{Version: "1.34.2", Classification: &supportedClassification},
+					{Version: "1.33.6", Classification: &deprecatedClassification, ExpirationDate: &expirationDateInThePast},
+				},
+				"1.34.2",
+				true,
+			),
+			Entry("Should pick a deprecated version of the consecutive minor version if no non-deprecated version exists.",
+				"1.33.6",
+				[]gardencorev1beta1.ExpirableVersion{
+					{Version: "1.34.3", Classification: &deprecatedClassification},
+					{Version: "1.34.2", Classification: &deprecatedClassification},
+					{Version: "1.33.6", Classification: &deprecatedClassification, ExpirationDate: &expirationDateInThePast},
+				},
+				"1.34.3",
+				true,
+			),
 			// check that multiple consecutive minor versions are possible
 			Entry("Should find qualifying version if there are only expired versions available in the consecutive minor version - pick latest expired version of that minor.",
 				"1.11.3",

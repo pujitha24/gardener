@@ -329,6 +329,7 @@ func getVersionForAutoUpdate(versions []gardencorev1beta1.ExpirableVersion, curr
 
 // GetVersionForForcefulUpdateToConsecutiveMinor finds a version from a slice of expirable versions that qualifies for a minor level update given a <currentVersion>.
 // A qualifying version is a non-preview version having the minor version increased by exactly one version (required for Kubernetes version upgrades).
+// Non-deprecated versions are preferred over deprecated ones.
 // In case the consecutive minor version has only expired versions, picks the latest expired version (will try another update during the next maintenance time).
 // If a version can be found, returns true and the qualifying patch version of the next minor version.
 // In case it does not find a version, it returns false and an empty string.
@@ -341,9 +342,18 @@ func GetVersionForForcefulUpdateToConsecutiveMinor(versions []gardencorev1beta1.
 	// filters out any version that does not have minor version +1
 	predicates := []VersionPredicate{FilterDifferentMajorVersion(*currentSemVerVersion), FilterNonConsecutiveMinorVersion(*currentSemVerVersion)}
 
-	qualifyingVersionFound, latestVersion, err := GetLatestQualifyingVersion(versions, append(predicates, FilterExpiredVersion())...)
+	// prefer a non-expired, non-deprecated version
+	qualifyingVersionFound, latestVersion, err := GetLatestQualifyingVersion(versions, append(predicates, FilterExpiredVersion(), FilterDeprecatedVersion())...)
 	if err != nil {
 		return false, "", err
+	}
+
+	// otherwise, also consider deprecated versions
+	if !qualifyingVersionFound {
+		qualifyingVersionFound, latestVersion, err = GetLatestQualifyingVersion(versions, append(predicates, FilterExpiredVersion())...)
+		if err != nil {
+			return false, "", err
+		}
 	}
 
 	// if no qualifying version is found, allow force update to an expired version
